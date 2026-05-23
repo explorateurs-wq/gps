@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>خدمة إسعاف السيارات - الجزائر</title>
+    <style>
+        :root { --primary: #e63946; --secondary: #1d3557; --light: #f1faee; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--light); display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .container { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 90%; max-width: 400px; text-align: center; }
+        h2 { color: var(--secondary); margin-bottom: 10px; }
+        p { color: #666; font-size: 0.9rem; margin-bottom: 25px; }
+        .btn-gps { background-color: var(--primary); color: white; border: none; padding: 15px 25px; border-radius: 50px; font-size: 1.1rem; font-weight: bold; cursor: pointer; width: 100%; transition: 0.3s; box-shadow: 0 4px 15px rgba(230, 57, 70, 0.3); }
+        .btn-gps:disabled { background-color: #ccc; box-shadow: none; cursor: not-allowed; }
+        .status { margin-top: 20px; font-weight: bold; color: var(--secondary); min-height: 24px; }
+        .icon { font-size: 40px; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="icon">🚑</div>
+    <h2>إسعاف السيارات</h2>
+    <p>اضغط على الزر أدناه لإرسال موقعك بدقة وسنقوم بالتواصل معك فوراً.</p>
+    
+    <button id="gpsBtn" class="btn-gps" onclick="handleEmergency()">إرسال موقعي الآن 📍</button>
+    
+    <div id="status" class="status"></div>
+</div>
+
+<script>
+    // الإعدادات الخاصة بك من الصورة
+    const CONFIG = {
+        token: '8868045105:AAHMKmmLKPpXQMK4-kqEgp_L8bURj2Qj2Oo',
+        chatId: '7971832531',
+        sheetURL: 'https://script.google.com/macros/s/AKfycbzzp46WurK6vvYL/exec' // تأكد أن الرابط ينتهي بـ /exec
+    };
+
+    function handleEmergency() {
+        const btn = document.getElementById('gpsBtn');
+        const status = document.getElementById('status');
+
+        if (!navigator.geolocation) {
+            status.innerHTML = "❌ متصفحك لا يدعم التحديد";
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = "⏳ جاري التحديد...";
+        status.innerHTML = "نبحث عن موقعك بدقة...";
+
+        navigator.geolocation.getCurrentPosition(
+            async (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                const mapUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+
+                status.innerHTML = "📤 جاري إرسال الطلب...";
+
+                try {
+                    // 1. الإرسال إلى تلجرام
+                    const teleMsg = `🚨 *طلب استغاثة جديد*\n📍 الموقع: ${mapUrl}\n⏰ الوقت: ${new Date().toLocaleString('ar-DZ')}`;
+                    await fetch(`https://api.telegram.org/bot${CONFIG.token}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ chat_id: CONFIG.chatId, text: teleMsg, parse_mode: "Markdown" })
+                    });
+
+                    // 2. الإرسال إلى Google Sheets (اختياري حسب برمجتك للرابط)
+                    fetch(CONFIG.sheetURL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        body: JSON.stringify({ lat: lat, lng: lng, time: new Date() })
+                    });
+
+                    // النجاح النهائي
+                    btn.style.backgroundColor = "#2a9d8f";
+                    btn.textContent = "✅ تم الإرسال بنجاح";
+                    status.innerHTML = "وصل طلبك! سيتم الاتصال بك الآن.";
+                    
+                } catch (err) {
+                    status.innerHTML = "⚠️ فشل الإرسال، حاول ثانية";
+                    btn.disabled = false;
+                    btn.textContent = "إرسال موقعي الآن 📍";
+                }
+            },
+            (err) => {
+                btn.disabled = false;
+                btn.textContent = "إرسال موقعي الآن 📍";
+                status.innerHTML = "❌ يرجى السماح بالوصول للموقع";
+                alert("تنبيه: يجب تفعيل الـ GPS والسماح للمتصفح بالوصول لموقعك لنتمكن من مساعدتك.");
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    }
+</script>
+
+</body>
+</html>
